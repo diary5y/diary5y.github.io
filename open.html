@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>5年日記帳</title>
+<style>
+  body { font-family: "Meiryo", sans-serif; background: #f5efe3; color: #1e2a44; margin: 0; padding: 40px 16px; text-align: center; }
+  h1 { font-size: 22px; margin: 0 0 16px; }
+  #msg { font-size: 16px; }
+  #log { margin: 24px auto 0; max-width: 640px; text-align: left; font-size: 13px; white-space: pre-wrap; color: #374057; background: #fff; border: 1px solid #d9c5a0; padding: 10px; }
+  #log:empty { display: none; }
+  #warm { position: absolute; left: -2000px; top: 0; width: 800px; height: 600px; border: 0; }
+</style>
+</head>
+<body>
+<h1 id="ttl">5年日記帳</h1>
+<div id="msg">開いています…</div>
+<div id="log"></div>
+<iframe id="warm" title="起こし役"></iframe>
+<script>
+// 5年日記帳 ランチャー(β版、2026-10-18 案2：全員共通のページ1つ。β-3-2)
+// 個人情報はこのページに一切書かない。日記帳のIDと名前は、起動リンクの # の後ろにだけ入る(# の後ろはインターネットに送られない)。
+// 起動リンク：https://diary5y.github.io/open.html#s=(スプレッドシートID)&g=(5年ビューのシートの番号)&n=(日記帳の名前)
+//   min・max(秒)は省略可(既定 min=2・max=3)。g が無い時は、行を指定せずに開く。
+// 動き(起こし役3と同じ)：①端末の日付から5年ビューの今日の行を計算 ②見えない枠で日記帳を起こす(今日の行を指定したアドレス)
+//   ③枠の読み込みが終わったら移る。min 秒より前には移らず、max 秒で必ず移る ④待つ間は「5年日記帳(名前)を開いています…」
+//   移る時は、このページを「戻る」の履歴に残さない(日記帳で戻るを押した時に、ここへ戻ってまた移るのを防ぐ)。
+// 記録：毎回の経過をこの端末のブラウザの中にだけ保存する(最新20回。IDと名前は入れない)。#log=1 を付けて開くと表示する。
+(function () {
+  var KEY = 'diary5yOpenLog';
+  var t0 = Date.now();
+  var p = {};
+  location.hash.replace(/^#/, '').split('&').forEach(function (kv) {
+    var i = kv.indexOf('=');
+    if (i > 0) { try { p[decodeURIComponent(kv.slice(0, i))] = decodeURIComponent(kv.slice(i + 1)); } catch (e) {} }
+  });
+  function readLog() { try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch (e) { return []; } }
+  function writeLog(list) { try { localStorage.setItem(KEY, JSON.stringify(list.slice(-20))); } catch (e) {} }
+  var ttl = document.getElementById('ttl'), logEl = document.getElementById('log'), msg = document.getElementById('msg'), warm = document.getElementById('warm');
+  if (p.log === '1') {
+    msg.textContent = '開いた時の記録（新しい順、最新20回）';
+    var list = readLog().slice().reverse();
+    logEl.textContent = list.length ? list.map(function (r, n) {
+      return (n + 1) + '. ' + r.start + '　下限' + r.min + '秒・上限' + r.max + '秒・今日の行' + (r.row || 'なし') + '\n   ' + (r.ev || []).join(' / ');
+    }).join('\n') : '記録はまだありません。';
+    return;
+  }
+  // 名前：制御文字を外し、30文字まで。表示は textContent だけ(HTMLとして扱わない)
+  var name = String(p.n || '').replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, 30);
+  var full = name ? '5年日記帳（' + name + '）' : '5年日記帳';
+  document.title = full;
+  ttl.textContent = full;
+  var s = String(p.s || '');
+  if (!/^[A-Za-z0-9_-]{25,100}$/.test(s)) { msg.textContent = 'この起動リンクは正しくありません。セットアップの最後に表示された起動リンクを、もう一度コピーしてください。'; return; }
+  var g = String(p.g || '').replace(/[^0-9]/g, '');
+  var minS = Math.max(0, Math.min(10, parseFloat(p.min || '2') || 0));
+  var maxS = Math.max(minS, Math.min(30, parseFloat(p.max || '3') || 0));
+  msg.textContent = full + 'を開いています…';
+  var base = 'https://docs.google.com/spreadsheets/d/' + s + '/edit';
+  // 5年ビューの今日の行 = 7 + (1月1日からの日数) × 6。うるう年の2024年で数える(日記帳のonOpenと同じ式)
+  var now = new Date();
+  var dayIdx = Math.round((new Date(2024, now.getMonth(), now.getDate()) - new Date(2024, 0, 1)) / 86400000);
+  var row = 7 + dayIdx * 6;
+  var dest = g ? base + '#gid=' + g + '&range=A' + row : base;
+  var rec = { start: new Date().toLocaleString('ja-JP'), min: minS, max: maxS, row: g ? row : 0, ev: [] };
+  var all = readLog(); all.push(rec);
+  function mark(m) { rec.ev.push(((Date.now() - t0) / 1000).toFixed(2) + '秒 ' + m); all[all.length - 1] = rec; writeLog(all); }
+  var loaded = false, gone = false;
+  function go(reason) {
+    if (gone) return; gone = true;
+    mark('日記帳へ移る(' + reason + ')');
+    location.replace(dest);
+  }
+  mark('開始');
+  warm.addEventListener('load', function () {
+    loaded = true; mark('枠の読み込み終了');
+    if ((Date.now() - t0) >= minS * 1000) go('読み込み終了');
+  }, { once: true });
+  warm.src = dest;
+  mark('枠の読み込み開始');
+  setTimeout(function () { if (loaded) go('下限に達した'); }, minS * 1000);
+  setTimeout(function () { go('上限'); }, maxS * 1000);
+  window.addEventListener('pagehide', function () { mark('このページを離れた'); });
+})();
+</script>
+</body>
+</html>
