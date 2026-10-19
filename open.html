@@ -23,8 +23,11 @@
 // 5年日記帳 ランチャー(β版、2026-10-18 案2：全員共通のページ1つ。β-3-2)
 // 個人情報はこのページに一切書かない。日記帳のIDと名前は、起動リンクの # の後ろにだけ入る(# の後ろはインターネットに送られない)。
 // 起動リンク：https://diary5y.github.io/open.html#s=(スプレッドシートID)&g=(5年ビューのシートの番号)&n=(日記帳の名前)
-//   min・max(秒)は省略可(既定 min=2・max=3)。g が無い時は、行を指定せずに開く。
-// 動き(起こし役3と同じ)：①端末の日付から5年ビューの今日の行を計算 ②見えない枠で日記帳を起こす(今日の行を指定したアドレス)
+//   min・max(秒)は省略可(既定 min=2・max=3)。g があれば5年ビューのシートの一番上で開く(行は指定しない)。
+//   2026-10-19 変更：今日の行を指定して開くと、Googleが開いた後で行まで画面を動かすため、空白が見えてから移る(もっさりする)。
+//   10/17の判断(行を指定しない・今日へは A4 のリンクで移る)に合わせ、行は指定しない形を既定にした。
+//   &today=1 を付けた時だけ、今日の行を指定して開く(起動の順番を切り替えられるように残す、10/17の指示)。
+// 動き：①(today=1 の時だけ)端末の日付から5年ビューの今日の行を計算 ②見えない枠で日記帳を起こす(移る先と同じアドレス)
 //   ③枠の読み込みが終わったら移る。min 秒より前には移らず、max 秒で必ず移る ④待つ間は「5年日記帳(名前)を開いています…」
 //   移る時は、このページを「戻る」の履歴に残さない(日記帳で戻るを押した時に、ここへ戻ってまた移るのを防ぐ)。
 // 記録：毎回の経過をこの端末のブラウザの中にだけ保存する(最新20回。IDと名前は入れない)。#log=1 を付けて開くと表示する。
@@ -59,12 +62,16 @@
   var maxS = Math.max(minS, Math.min(30, parseFloat(p.max || '3') || 0));
   msg.textContent = full + 'を開いています…';
   var base = 'https://docs.google.com/spreadsheets/d/' + s + '/edit';
-  // 5年ビューの今日の行 = 7 + (1月1日からの日数) × 6。うるう年の2024年で数える(日記帳のonOpenと同じ式)
-  var now = new Date();
-  var dayIdx = Math.round((new Date(2024, now.getMonth(), now.getDate()) - new Date(2024, 0, 1)) / 86400000);
-  var row = 7 + dayIdx * 6;
-  var dest = g ? base + '#gid=' + g + '&range=A' + row : base;
-  var rec = { start: new Date().toLocaleString('ja-JP'), min: minS, max: maxS, row: g ? row : 0, ev: [] };
+  // today=1 の時だけ、5年ビューの今日の行 = 7 + (1月1日からの日数) × 6 を指定する(うるう年の2024年で数える。日記帳のonOpenと同じ式)
+  var useToday = (p.today === '1') && !!g;
+  var row = 0;
+  if (useToday) {
+    var now = new Date();
+    var dayIdx = Math.round((new Date(2024, now.getMonth(), now.getDate()) - new Date(2024, 0, 1)) / 86400000);
+    row = 7 + dayIdx * 6;
+  }
+  var dest = g ? base + '#gid=' + g + (useToday ? '&range=A' + row : '') : base;
+  var rec = { start: new Date().toLocaleString('ja-JP'), min: minS, max: maxS, row: row, ev: [] };
   var all = readLog(); all.push(rec);
   function mark(m) { rec.ev.push(((Date.now() - t0) / 1000).toFixed(2) + '秒 ' + m); all[all.length - 1] = rec; writeLog(all); }
   var loaded = false, gone = false;
