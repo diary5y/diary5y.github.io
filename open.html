@@ -23,7 +23,7 @@
 // 5年日記帳 ランチャー(β版、2026-10-18 案2：全員共通のページ1つ。β-3-2)
 // 個人情報はこのページに一切書かない。日記帳のIDと名前は、起動リンクの # の後ろにだけ入る(# の後ろはインターネットに送られない)。
 // 起動リンク：https://diary5y.github.io/open.html#s=(スプレッドシートID)&g=(5年ビューのシートの番号)&n=(日記帳の名前)
-//   min・max(秒)は省略可(既定 min=2・max=3)。g があれば5年ビューのシートの一番上で開く(行は指定しない)。
+//   min・max(秒)は省略可(既定 min=1・max=2。2026-10-27：約255時間冷えた状態から0.5秒でも成功)。g があれば5年ビューのシートの一番上で開く(行は指定しない)。
 //   2026-10-19 変更：今日の行を指定して開くと、Googleが開いた後で行まで画面を動かすため、空白が見えてから移る(もっさりする)。
 //   10/17の判断(行を指定しない・今日へは A4 のリンクで移る)に合わせ、行は指定しない形を既定にした。
 //   &today=1 を付けた時だけ、今日の行を指定して開く(起動の順番を切り替えられるように残す、10/17の指示)。
@@ -58,8 +58,8 @@
   var s = String(p.s || '');
   if (!/^[A-Za-z0-9_-]{25,100}$/.test(s)) { msg.textContent = 'この起動リンクは正しくありません。セットアップの最後に表示された起動リンクを、もう一度コピーしてください。'; return; }
   var g = String(p.g || '').replace(/[^0-9]/g, '');
-  var minS = Math.max(0, Math.min(10, parseFloat(p.min || '2') || 0));
-  var maxS = Math.max(minS, Math.min(30, parseFloat(p.max || '3') || 0));
+  var minS = Math.max(0, Math.min(10, parseFloat(p.min || '1') || 0));
+  var maxS = Math.max(minS, Math.min(30, parseFloat(p.max || '2') || 0));
   msg.textContent = full + 'を開いています…';
   var base = 'https://docs.google.com/spreadsheets/d/' + s + '/edit';
   // today=1 の時だけ、5年ビューの今日の行 = 7 + (1月1日からの日数) × 6 を指定する(うるう年の2024年で数える。日記帳のonOpenと同じ式)
